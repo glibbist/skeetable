@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skee-Ball Score Tracker</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            width: 100%;
+            max-width: 800px;
+        }
+        .player-container {
+            position: relative;
+            max-width: 350px;
+            width: 100%;
+        }
+        .board {
+            width: 100%;
+            max-width: 350px;
+            height: auto;
+            position: relative;
+            z-index: 10;
+        }
+
+        .lines{
+            width: 100%;
+            max-width: 350px;
+            height: auto;
+            position: absolute;
+            z-index: 9;
+        }
+        .history {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 0;
+            pointer-events: none;
+        }
+        .buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .reset-button, .undo-button, .redo-button {
+            padding: 10px 20px;
+            font-size: 16px;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        .reset-button {
+            background-color: #333;
+        }
+        .reset-button:hover {
+            background-color: #555;
+        }
+        .undo-button {
+            background-color: #666;
+        }
+        .undo-button:hover {
+            background-color: #777;
+        }
+        .redo-button {
+            background-color: #777;
+        }
+        .redo-button:hover {
+            background-color: #888;
+        }
+        @media (orientation: landscape) {
+            .container {
+                flex-direction: row;
+                gap: 200px;
+            }
+            .player-container {
+                max-width: 300px;
+            }
+            .board , .lines{
+                max-width: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="player-container">
+        <svg class="lines" viewBox="0 0 350 400" xmlns="http://www.w3.org/2000/svg">
+            <circle class="line" cx="175" cy="215" r="105" stroke="#111" stroke-width="2" fill="none"></circle>
+            <path class="line" d="M 5 225 A 170 170 0 0 0 345 225" stroke="#111" stroke-width="2" fill="none"></path>
+            <path class="line" d="M 5, 225 L 5, 45 M 345, 225 L 345, 45" stroke="#111" stroke-width="2" fill="none"></path>
+        </svg>
+            <svg class="board" viewBox="0 0 350 400" xmlns="http://www.w3.org/2000/svg">
+                <circle class="circ" cx="175" cy="285" r="35" stroke="#111" stroke-width="2" fill="white"></circle>
+                <circle class="circ" cx="25" cy="50" r="20" stroke="#111" stroke-width="2" fill="white"></circle>
+                <circle class="circ" cx="325" cy="50" r="20" stroke="#111" stroke-width="2" fill="white"></circle>
+                <circle class="circ" cx="175" cy="80" r="25" stroke="#111" stroke-width="2" fill="white"></circle>
+                <circle class="circ" cx="175" cy="140" r="30" stroke="#111" stroke-width="2" fill="white"></circle>
+                <circle class="circ" cx="175" cy="210" r="35" stroke="#111" stroke-width="2" fill="white"></circle>
+                <circle class="circ" cx="175" cy="360" r="35" stroke="#111" stroke-width="2" fill="white"></circle>
+            </svg>
+        </div>
+
+        <div class="player-container">
+        <svg class="lines" viewBox="0 0 350 400" xmlns="http://www.w3.org/2000/svg">
+            <circle class="line" cx="175" cy="215" r="105" stroke="#111" stroke-width="2" fill="none"></circle>
+            <path class="line" d="M 5 225 A 170 170 0 0 0 345 225" stroke="#000" stroke-width="2" fill="none"></path>
+            <path class="line" d="M 5, 225 L 5, 45 M 345, 225 L 345, 45" stroke="#111" stroke-width="2" fill="none"></path>
+        </svg>
+            <svg class="board" viewBox="0 0 350 400" xmlns="http://www.w3.org/2000/svg">
+                <circle class="circ" cx="25" cy="50" r="20" stroke="#111" stroke-width="2" fill="white"></circle>
+                <circle class="circ" cx="325" cy="50" r="20" stroke="#111" stroke-width="2" fill="white"></circle>
+                <circle class="circ" cx="175" cy="80" r="25" stroke="#111" stroke-width="2" fill="white"></circle>
+                <circle class="circ" cx="175" cy="140" r="30" stroke="#111" stroke-width="2" fill="white"></circle>
+                <circle class="circ" cx="175" cy="210" r="35" stroke="#111" stroke-width="2" fill="white"></circle>
+                <circle class="circ" cx="175" cy="285" r="35" stroke="#111" stroke-width="2" fill="white"></circle>
+                <circle class="circ" cx="175" cy="360" r="35" stroke="#111" stroke-width="2" fill="white"></circle>
+            </svg>
+        </div>
+    </div>
+    <div class="buttons">
+        <button class="reset-button" onclick="resetBoards()">Reset</button>
+        <button class="undo-button" onclick="undo()">Undo</button>
+        <button class="redo-button" onclick="redo()">Redo</button>
+    </div>
+
+    <script>
+        let undoStack = [];
+        let redoStack = [];
+        const SCALE_FACTOR = 150;
+        const xSCALE_FACTOR = 0.99;
+        const TRANSLATE_PERCENT = 10;
+
+        function updateHistoryPositions(playerContainer) {
+            const histories = playerContainer.querySelectorAll('.history');
+            for (let i = 0; i < histories.length; i++) {
+                const depth = histories.length - i; // Newest (high i) = depth 1, oldest (i=0) = depth N
+                const factor = (SCALE_FACTOR * depth);
+                const xFactor = Math.pow(xSCALE_FACTOR, depth);
+                const translate = depth * TRANSLATE_PERCENT;
+                histories[i].style.filter = "brightness(" + (factor.toFixed(3)) + "%)";
+                histories[i].style.transform = `translateX(${translate}%) translateY(${-translate/3}%)scale(${xFactor})`;
+            }
+        }
+
+        function resetBoards() {
+            const playerContainers = document.querySelectorAll('.player-container');
+            playerContainers.forEach(pc => {
+                const histories = pc.querySelectorAll('.history');
+                histories.forEach(h => h.remove());
+                const board = pc.querySelector('.board');
+                if (board) {
+                    const circles = board.querySelectorAll('circ');
+                    circles.forEach(c => c.setAttribute('fill', 'white'));
+                }
+            });
+            undoStack = [];
+            redoStack = [];
+        }
+
+        function undo() {
+            if (undoStack.length === 0) return;
+            const item = undoStack.pop();
+            const { playerContainer, duplicate } = item;
+            duplicate.remove();
+            updateHistoryPositions(playerContainer);
+            redoStack.push(item);
+        }
+
+        function redo() {
+            if (redoStack.length === 0) return;
+            const item = redoStack.pop();
+            const { playerContainer, duplicate } = item;
+            playerContainer.appendChild(duplicate);
+            updateHistoryPositions(playerContainer);
+            undoStack.push(item);
+        }
+
+        const circles = document.querySelectorAll('.circ');
+        circles.forEach(circle => {
+                circle.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    const currentFill = this.getAttribute('fill');
+                    if (currentFill === 'white') {
+                        // Temporarily set the clicked circle to #111 to capture the hit in the snapshot
+                        this.setAttribute('fill', '#111');
+                        const board = this.closest('.board');
+                        const playerContainer = board.parentNode;
+                        // Create duplicate capturing the hit
+                        let duplicate = board.cloneNode(true);
+                        duplicate.classList.remove('board');
+                        duplicate.classList.add('history');
+                        duplicate.style.pointerEvents = 'none';
+                        // Append as the newest (on top)
+                        playerContainer.appendChild(duplicate);
+                        // Now reset the original board
+                        const origCircles = board.querySelectorAll('.circ');
+                        const lines = board.querySelectorAll('.line');
+                        origCircles.forEach(c => c.setAttribute('fill', 'white'));
+                        lines.forEach(c => c.setAttribute('stroke', 'none'));
+                        // Update all history positions (shifts existing deeper, sets new as depth 1)
+                        updateHistoryPositions(playerContainer);
+                        // Push to undo stack and clear redo
+                        undoStack.push({ playerContainer, duplicate });
+                        redoStack = [];
+                    }
+                });
+            
+        });
+    </script>
+</body>
+</html>
